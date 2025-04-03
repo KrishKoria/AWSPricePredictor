@@ -60,18 +60,20 @@ calculate_job_cost <- function(price, duration_hours) {
 
 # Function to get all available AWS regions
 get_aws_regions <- function() {
-  result <- try(system("aws ec2 describe-regions --output text --query \"Regions[].RegionName\"", 
+  result <- try(system("aws ec2 describe-regions --output json --query \"Regions[].RegionName\"", 
                      intern = TRUE), silent = TRUE)
   
   if (inherits(result, "try-error")) {
     # Return default regions if the command fails
     return(c("us-east-1", "us-east-2", "us-west-1", "us-west-2", "eu-west-1"))
   } else {
-    # Split the result into a vector by whitespace
-    regions <- unlist(strsplit(paste(result, collapse = " "), "\\s+"))
-    if (length(regions) == 0) {
+    # Parse the JSON result
+    regions <- tryCatch({
+      fromJSON(paste(result, collapse = ""))
+    }, error = function(e) {
       return(c("us-east-1", "us-east-2", "us-west-1", "us-west-2", "eu-west-1"))
-    }
+    })
+    
     return(sort(regions))
   }
 }
@@ -89,18 +91,20 @@ get_availability_zones <- function(region) {
   }
   
   result <- try(system(paste("aws ec2 describe-availability-zones --region", region, 
-                           "--output text --query \"AvailabilityZones[].ZoneName\""), 
+                           "--output json --query \"AvailabilityZones[].ZoneName\""), 
                      intern = TRUE), silent = TRUE)
   
   if (inherits(result, "try-error")) {
     # Return some default zones if the command fails
     return(paste0(region, c("a", "b", "c")))
   } else {
-    # Split the result into a vector by whitespace
-    zones <- unlist(strsplit(paste(result, collapse = " "), "\\s+"))
-    if (length(zones) == 0) {
+    # Parse the JSON result
+    zones <- tryCatch({
+      fromJSON(paste(result, collapse = ""))
+    }, error = function(e) {
       return(paste0(region, c("a", "b", "c")))
-    }
+    })
+    
     return(sort(zones))
   }
 }
@@ -603,16 +607,42 @@ server <- function(input, output, session) {
 })
   
   output$plot_ar <- renderPlotly({
-    if (!checkData() || is.null(forecasts$ar)) return(NULL)
-    
-    p <- autoplot(forecasts$ar) + 
-      ggtitle("ARIMA Forecast") +
-      xlab("Time") + 
-      ylab("Spot Price") +
-      theme_minimal()
-    
-    ggplotly(p)
-  })
+  if (!checkData() || is.null(forecasts$ar)) return(NULL)
+  
+  # Get original data
+  orig_data <- createData()
+  orig_time <- time(orig_data)
+  orig_values <- as.numeric(orig_data)
+  
+  # Get forecast data
+  forecast_time <- time(forecasts$ar$mean)
+  mean_values <- as.numeric(forecasts$ar$mean)
+  
+  # Create lower/upper bound vectors
+  lower_values <- if(is.matrix(forecasts$ar$lower)) forecasts$ar$lower[,1] else forecasts$ar$lower
+  upper_values <- if(is.matrix(forecasts$ar$upper)) forecasts$ar$upper[,1] else forecasts$ar$upper
+  
+  # Create the plot
+  p <- plot_ly() %>%
+    add_trace(x = orig_time, y = orig_values, 
+              type = "scatter", mode = "lines", name = "Historical",
+              line = list(color = 'black')) %>%
+    add_trace(x = forecast_time, y = mean_values, 
+              type = "scatter", mode = "lines", name = "Forecast",
+              line = list(color = 'orange')) %>%
+    add_ribbons(x = forecast_time, 
+                ymin = lower_values, 
+                ymax = upper_values,
+                name = paste0(input$confidence_level, "% CI"),
+                fillcolor = 'rgba(255, 165, 0, 0.2)',
+                line = list(color = 'rgba(255, 165, 0, 0)')) %>%
+    layout(title = "ARIMA Forecast",
+           xaxis = list(title = "Time"),
+           yaxis = list(title = "Spot Price"),
+           showlegend = TRUE)
+  
+  return(p)
+})
   
   output$plot_sn <- renderPlotly({
     if (!checkData() || is.null(forecasts$sn)) return(NULL)
@@ -845,34 +875,37 @@ server <- function(input, output, session) {
   
   # Render history plot
   output$history_plot <- renderPlotly({
-    data <- spot_history_data()
-    if (is.null(data)) return(NULL)
-    
-    # Add hour of day and day of week
-    data$Hour <- as.numeric(format(data$Timestamp, "%H"))
-    data$DayOfWeek <- factor(weekdays(data$Timestamp), 
-                             levels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
-    
-    # Create plot of price over time
-    p1 <- plot_ly(data, x = ~Timestamp, y = ~as.numeric(SpotPrice), type = "scatter", 
-                  mode = "lines", name = "Spot Price", line = list(color = "#4682B4")) %>%
-      layout(title = "Spot Price History",
-             xaxis = list(title = "Date"),
-             yaxis = list(title = "Spot Price ($)"))
-    
-    # Create heatmap of price by day of week and hour
-    daily_pattern <- aggregate(as.numeric(SpotPrice) ~ Hour + DayOfWeek, data = data, FUN = mean)
-    
-    p2 <- plot_ly(daily_pattern, x = ~DayOfWeek, y = ~Hour, z = ~as.numeric(SpotPrice), 
-                  type = "heatmap", colorscale = "Blues", reversescale = TRUE) %>%
-      layout(title = "Average Spot Price by Day and Hour",
-             xaxis = list(title = "Day of Week"),
-             yaxis = list(title = "Hour of Day", autorange = "reversed"))
-    
-    # Create subplot with both charts
-    subplot(p1, p2, nrows = 2, heights = c(0.7, 0.3)) %>%
-      layout(title = "Spot Price Analysis")
-  })
+  data <- spot_history_data()
+  if (is.null(data)) return(NULL)
+  
+  # Add hour of day and day of week
+  data$Hour <- as.numeric(format(data$Timestamp, "%H"))
+  data$DayOfWeek <- factor(weekdays(data$Timestamp), 
+                          levels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+  
+  # Convert SpotPrice to numeric explicitly
+  data$NumericSpotPrice <- as.numeric(data$SpotPrice)
+  
+  # Create plot of price over time
+  p1 <- plot_ly(data, x = ~Timestamp, y = ~NumericSpotPrice, type = "scatter", 
+                mode = "lines", name = "Spot Price", line = list(color = "#4682B4")) %>%
+    layout(title = "Spot Price History",
+           xaxis = list(title = "Date"),
+           yaxis = list(title = "Spot Price ($)"))
+  
+  # Create heatmap of price by day of week and hour
+  daily_pattern <- aggregate(NumericSpotPrice ~ Hour + DayOfWeek, data = data, FUN = mean)
+  
+  p2 <- plot_ly(daily_pattern, x = ~DayOfWeek, y = ~Hour, z = ~NumericSpotPrice, 
+                type = "heatmap", colorscale = "Blues", reversescale = TRUE) %>%
+    layout(title = "Average Spot Price by Day and Hour",
+           xaxis = list(title = "Day of Week"),
+           yaxis = list(title = "Hour of Day", autorange = "reversed"))
+  
+  # Create subplot with both charts
+  subplot(p1, p2, nrows = 2, heights = c(0.7, 0.3)) %>%
+    layout(title = "Spot Price Analysis")
+})
   
   # Dark mode toggle
   observeEvent(input$dark_mode, {
