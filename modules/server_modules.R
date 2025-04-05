@@ -5,13 +5,13 @@ predictionTabServer <- function(id, shared_data) {
   moduleServer(id, function(input, output, session) {
     # Dynamic UI elements
     output$zone_selector <- renderUI({
-      if (input$region != "Select") {
-        zones <- get_availability_zones(input$region)
-        selectInput("zone", "Availability Zone", choices = c("Select", zones), selected = "Select")
-      } else {
-        selectInput("zone", "Availability Zone", choices = c("Select"), selected = "Select")
-      }
-    })
+    if (input$region != "Select") {
+      zones <- get_availability_zones(input$region)
+      selectInput(session$ns("zone"), "Availability Zone", choices = c("Select", zones), selected = "Select")
+    } else {
+      selectInput(session$ns("zone"), "Availability Zone", choices = c("Select"), selected = "Select")
+    }
+  })
     
     # Update date range when hist_days changes
     observeEvent(input$hist_days, {
