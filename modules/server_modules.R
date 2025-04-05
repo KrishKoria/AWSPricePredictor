@@ -20,12 +20,12 @@ predictionTabServer <- function(id, shared_data) {
     })
     
     # Check if all filters are properly selected
-    checkFilters <- eventReactive(input$getData, {
-      ifelse(input$instance == "Select" || 
-               input$zone == "Select" || 
-               input$os == "Select" || 
-               input$predint == "Select", FALSE, TRUE)
-    })
+    checkFilters <- reactive({
+    ifelse(input$instance == "Select" || 
+              input$zone == "Select" || 
+              input$os == "Select" || 
+              input$predint == "Select", FALSE, TRUE)
+})
     
     # Fetch raw spot price data
     createData_1 <- reactive({
