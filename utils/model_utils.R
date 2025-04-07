@@ -4,7 +4,6 @@
 prepare_time_series <- function(spot_price_data, zone, instance, os) {
   # Filter and prepare the data
   SpotPriceHistory_Filtered <- filterSpotPriceHistory(spot_price_data, zone, instance, os)
-  
   # Add time index
   SpotPriceHistory_Filtered$Time <- seq.int(nrow(SpotPriceHistory_Filtered))
   

@@ -57,28 +57,26 @@ get_availability_zones <- function(region) {
   }
 }
 
-# Function to get instance types
+# Function to get instance types dynamically from AWS CLI
 get_instance_types <- function() {
-  # This is a simplified list - in production, you could fetch this from AWS API
-  instance_families <- c("t3", "m5", "m6i", "c5", "c6i", "r5", "r6i", "p3", "p4d", "g4dn")
-  sizes <- c("nano", "micro", "small", "medium", "large", "xlarge", "2xlarge", "4xlarge", "8xlarge", "16xlarge", "24xlarge")
+  # AWS CLI command to describe instance types
+  command <- "aws ec2 describe-instance-types --query \"InstanceTypes[].InstanceType\" --output json"
+  # Execute the command and capture the result
+  result <- try(system(command, intern = TRUE), silent = TRUE)
   
-  # Create combinations
-  types <- c()
-  for (family in instance_families) {
-    for (size in sizes) {
-      # Skip invalid combinations
-      if ((family %in% c("p3", "p4d", "g4dn") && size %in% c("nano", "micro", "small", "medium"))) {
-        next
-      }
-      types <- c(types, paste0(family, ".", size))
-    }
+  if (inherits(result, "try-error")) {
+    # Return a default list if the command fails
+    return(c("t3.micro", "m5.large", "c5.xlarge", "r5.2xlarge"))
   }
   
-  # Add some specialty instances
-  types <- c(types, "x1.16xlarge", "x1.32xlarge", "x2gd.metal")
-  
-  return(sort(types))
+  # Parse the JSON result
+  tryCatch({
+    instance_types <- fromJSON(paste(result, collapse = ""))
+    return(sort(instance_types))
+  }, error = function(e) {
+    # Return a default list if JSON parsing fails
+    return(c("t3.micro", "m5.large", "c5.xlarge", "r5.2xlarge"))
+  })
 }
 
 # Function to fetch spot price data from AWS
