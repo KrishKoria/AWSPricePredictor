@@ -59,3 +59,23 @@ get_forecast_result <- function(forecast_obj, time_of_day) {
   
   return(CI)
 }
+
+estimate_wtp <- function(quality, usage_time, discount, sharing_option) {
+  # Regression coefficients (example values, adjust as needed)
+  beta_0 <- 2.5  # Intercept
+  beta_quality <- 0.3  # Coefficient for quality of service
+  beta_usage <- -0.001  # Coefficient for usage time
+  beta_discount <- 0.02  # Coefficient for certainty of discount
+  xi_sharing <- ifelse(sharing_option == "One", 0.5, 1.0)  # Binary coefficient for sharing option
+  
+  # Calculate log-linear WTP
+  log_wtp <- beta_0 + 
+             beta_quality * quality + 
+             beta_usage * usage_time + 
+             beta_discount * discount + 
+             xi_sharing
+  
+  # Convert to actual WTP using exponential
+  wtp <- exp(log_wtp)
+  return(wtp)
+}

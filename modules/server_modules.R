@@ -175,9 +175,27 @@ predictionTabServer <- function(id, shared_data) {
   })
 }
 
+customerWillingnessTabServer <- function(id, shared_data) {
+  moduleServer(id, function(input, output, session) {
+    observe({
+      shared_data$customer_wtp <- estimate_wtp(
+        quality = input$quality_of_service,
+        usage_time = input$usage_time,
+        discount = input$certainty_of_discount,
+        sharing_option = input$sharing_option
+      )
+    })
+    # Calculate WTP and display it
+    output$willingness_output <- renderText({
+      paste("Estimated Willingness to Pay: $", round(shared_data$customer_wtp, 2))
+    })
+  })
+}
+
 # Calculator tab server module
 calculatorTabServer <- function(id, shared_data) {
   moduleServer(id, function(input, output, session) {
+
     # Cost calculator
     output$cost_table <- renderTable({
       if (is.null(shared_data$forecasts) || is.null(shared_data$forecasts$hw)) return(NULL)
@@ -190,6 +208,13 @@ calculatorTabServer <- function(id, shared_data) {
       sn_price <- get_forecast_result(shared_data$forecasts$sn, time_of_day)["Mean"]
       sar_price <- get_forecast_result(shared_data$forecasts$sar, time_of_day)["Mean"]
       
+      # Calculate WTP-adjusted prices
+      wtp_factor <- shared_data$customer_wtp
+      hw_price <- hw_price * wtp_factor
+      ar_price <- ar_price * wtp_factor
+      sn_price <- sn_price * wtp_factor
+      sar_price <- sar_price * wtp_factor
+
       # Calculate costs
       hw_cost <- calculate_job_cost(hw_price, input$job_duration) * input$instance_count
       ar_cost <- calculate_job_cost(ar_price, input$job_duration) * input$instance_count

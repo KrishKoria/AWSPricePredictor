@@ -22,7 +22,8 @@ server <- function(input, output, session) {
     confidence_level = 95, # Changed from reactive to direct value
     dark_mode = FALSE, # Changed from reactive to direct value
     aws_configured = check_aws_config(),
-    region = NULL # Will be updated when region changes
+    region = NULL, # Will be updated when region changes
+    customer_wtp = NULL
   )
   
   # Update region when it changes
@@ -43,6 +44,7 @@ server <- function(input, output, session) {
   predictionTabServer("prediction", shared_data)
   calculatorTabServer("calculator", shared_data)
   # historyTabServer("history", shared_data)
+  customerWillingnessTabServer("willingness", shared_data)  # Add this line
   settingsTabServer("settings", shared_data)
   
   # Export functionality for tables and plots
