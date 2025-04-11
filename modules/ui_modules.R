@@ -78,30 +78,30 @@ calculatorTabUI <- function(id) {
 }
 
 # History tab UI module
-historyTabUI <- function(id) {
-  ns <- NS(id)
+# historyTabUI <- function(id) {
+#   ns <- NS(id)
   
-  tabItem(tabName = "history",
-          fluidRow(
-            box(
-              title = "Spot Price History", status = "primary", solidHeader = TRUE,
-              width = 12,
-              dateRangeInput(ns("date_range"), "Date Range", 
-                             start = Sys.Date() - 30, end = Sys.Date() - 1),
-              actionButton(ns("getHistory"), "Fetch History", class = "btn-info", icon = icon("search")),
-              DTOutput(ns("spot_history_table"))
-            )
-          ),
+#   tabItem(tabName = "history",
+#           fluidRow(
+#             box(
+#               title = "Spot Price History", status = "primary", solidHeader = TRUE,
+#               width = 12,
+#               dateRangeInput(ns("date_range"), "Date Range", 
+#                              start = Sys.Date() - 30, end = Sys.Date() - 1),
+#               actionButton(ns("getHistory"), "Fetch History", class = "btn-info", icon = icon("search")),
+#               DTOutput(ns("spot_history_table"))
+#             )
+#           ),
           
-          fluidRow(
-            box(
-              title = "Historical Price Trends", status = "info", solidHeader = TRUE,
-              width = 12,
-              plotlyOutput(ns("history_plot"))
-            )
-          )
-  )
-}
+#           fluidRow(
+#             box(
+#               title = "Historical Price Trends", status = "info", solidHeader = TRUE,
+#               width = 12,
+#               plotlyOutput(ns("history_plot"))
+#             )
+#           )
+#   )
+# }
 
 # Settings tab UI module
 settingsTabUI <- function(id) {
@@ -134,16 +134,41 @@ settingsTabUI <- function(id) {
   )
 }
 
+customerWillingnessTabUI <- function(id) {
+  ns <- NS(id)
+  
+  tabItem(tabName = "willingness",
+          fluidRow(
+            box(
+              title = "Customer Willingness to Pay", status = "primary", solidHeader = TRUE,
+              width = 12,
+              p("Set parameters to estimate customer willingness to pay based on hedonic values."),
+              
+              # Dummy selectors for hedonic values
+              sliderInput(ns("quality_of_service"), "Quality of Service (0-10)", min = 0, max = 10, value = 5),
+              sliderInput(ns("usage_time"), "Usage Time (Weeks to Minutes)", min = 1, max = 10080, value = 1440, step = 60, post = " mins"),
+              sliderInput(ns("certainty_of_discount"), "Certainty of Discount (0-100%)", min = 0, max = 100, value = 50, post = "%"),
+              selectInput(ns("sharing_option"), "Sharing Option", choices = c("One", "Many"), selected = "One"),
+              
+              # Display calculated willingness to pay (dummy output)
+              h4("Estimated Willingness to Pay:"),
+              verbatimTextOutput(ns("willingness_output"))
+            )
+          )
+  )
+}
+
 # Combined UI function
 createDashboardUI <- function() {
   dashboardPage(
-    dashboardHeader(title = "Spot The Spot - Enhanced"),
+    dashboardHeader(title = "Predict Prices"),
     
     dashboardSidebar(
       sidebarMenu(
         menuItem("Price Prediction", tabName = "prediction", icon = icon("chart-line")),
+        menuItem("Customer Willingness", tabName = "willingness", icon = icon("user")),
         menuItem("Cost Calculator", tabName = "calculator", icon = icon("calculator")),
-        menuItem("Spot History", tabName = "history", icon = icon("history")),
+        # menuItem("Spot History", tabName = "history", icon = icon("history")),
         menuItem("Settings", tabName = "settings", icon = icon("cog"))
       ),
       
@@ -182,8 +207,19 @@ createDashboardUI <- function() {
       tabItems(
         predictionTabUI("prediction"),
         calculatorTabUI("calculator"),
-        historyTabUI("history"),
+        customerWillingnessTabUI("willingness"),
+        # historyTabUI("history"),
         settingsTabUI("settings")
+      ),
+      fluidRow(
+        box(
+          title = "References", status = "info", solidHeader = TRUE, width = 12,
+          p("This application is inspired by the research paper:"),
+          tags$blockquote(
+            "Cloud service providers (CSP) and cloud consumers often need to forecast the cloud price to optimize their business strategy. However, pricing of cloud services is a challenging task due to its services complexity and dynamic nature of the ever-changing environment. Moreover, the cloud pricing based on consumers’ willingness to pay (W2P) becomes even more challenging due to the subjectiveness of consumers’ experiences and implicit values of some non-marketable features, such as burstable CPU, dedicated server, and cloud data center global footprints.",
+            tags$footer("Source: Research Paper on Value-Based Pricing for Cloud Services")
+          )
+        )
       )
     )
   )

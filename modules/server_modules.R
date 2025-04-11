@@ -272,104 +272,104 @@ calculatorTabServer <- function(id, shared_data) {
 }
 
 # History tab server module
-historyTabServer <- function(id, shared_data) {
-  moduleServer(id, function(input, output, session) {
-    # Spot history data
-    spot_history_data <- reactiveVal(NULL)
+# historyTabServer <- function(id, shared_data) {
+#   moduleServer(id, function(input, output, session) {
+#     # Spot history data
+#     spot_history_data <- reactiveVal(NULL)
     
-    observeEvent(input$getHistory, {
-      if (input$instance == "Select" || input$zone == "Select" || input$os == "Select") {
-        showNotification("Please select instance type, zone, and OS first", type = "warning")
-        return(NULL)
-      }
+#     observeEvent(input$getHistory, {
+#       if (input$instance == "Select" || input$zone == "Select" || input$os == "Select") {
+#         showNotification("Please select instance type, zone, and OS first", type = "warning")
+#         return(NULL)
+#       }
       
-      # Format date range for AWS CLI
-      start_date <- paste0(input$date_range[1], "T00:00:00.001")
-      end_date <- paste0(input$date_range[2], "T23:59:59.999")
+#       # Format date range for AWS CLI
+#       start_date <- paste0(input$date_range[1], "T00:00:00.001")
+#       end_date <- paste0(input$date_range[2], "T23:59:59.999")
       
-      withProgress(message = 'Fetching spot price history...', value = 0, {
-        result <- fetch_spot_price_data(shared_data$region, input$zone, input$instance, input$os, 
-                                        start_date, end_date)
+#       withProgress(message = 'Fetching spot price history...', value = 0, {
+#         result <- fetch_spot_price_data(shared_data$region, input$zone, input$instance, input$os, 
+#                                         start_date, end_date)
         
-        if (is.null(result)) {
-          showNotification("No spot price data found or error fetching data.", type = "warning")
-          return(NULL)
-        }
+#         if (is.null(result)) {
+#           showNotification("No spot price data found or error fetching data.", type = "warning")
+#           return(NULL)
+#         }
         
-        incProgress(0.7, detail = "Processing data...")
+#         incProgress(0.7, detail = "Processing data...")
         
-        # Convert timestamps to datetime objects
-        result$Timestamp <- as.POSIXct(result$Timestamp)
+#         # Convert timestamps to datetime objects
+#         result$Timestamp <- as.POSIXct(result$Timestamp)
         
-        # Sort by timestamp
-        result <- result[order(result$Timestamp), ]
+#         # Sort by timestamp
+#         result <- result[order(result$Timestamp), ]
         
-        # Store data in reactive value
-        spot_history_data(result)
+#         # Store data in reactive value
+#         spot_history_data(result)
         
-        incProgress(1, detail = "Done!")
-      })
-    })
+#         incProgress(1, detail = "Done!")
+#       })
+#     })
     
-    # Render spot history table
-    output$spot_history_table <- renderDT({
-      data <- spot_history_data()
-      if (is.null(data)) return(NULL)
+#     # Render spot history table
+#     output$spot_history_table <- renderDT({
+#       data <- spot_history_data()
+#       if (is.null(data)) return(NULL)
       
-      # Format data for display
-      display_data <- data.frame(
-        Timestamp = data$Timestamp,
-        AvailabilityZone = data$AvailabilityZone,
-        InstanceType = data$InstanceType,
-        SpotPrice = as.numeric(data$SpotPrice),
-        ProductDescription = data$ProductDescription
-      )
+#       # Format data for display
+#       display_data <- data.frame(
+#         Timestamp = data$Timestamp,
+#         AvailabilityZone = data$AvailabilityZone,
+#         InstanceType = data$InstanceType,
+#         SpotPrice = as.numeric(data$SpotPrice),
+#         ProductDescription = data$ProductDescription
+#       )
       
-      # Create datatable with formatting
-      datatable(display_data, 
-                options = list(
-                  pageLength = 10, 
-                  order = list(list(0, 'desc')),
-                  searchHighlight = TRUE
-                )) %>%
-        formatRound('SpotPrice', 5)
-    })
+#       # Create datatable with formatting
+#       datatable(display_data, 
+#                 options = list(
+#                   pageLength = 10, 
+#                   order = list(list(0, 'desc')),
+#                   searchHighlight = TRUE
+#                 )) %>%
+#         formatRound('SpotPrice', 5)
+#     })
     
-    # Render history plot
-    output$history_plot <- renderPlotly({
-      data <- spot_history_data()
-      if (is.null(data)) return(NULL)
+#     # Render history plot
+#     output$history_plot <- renderPlotly({
+#       data <- spot_history_data()
+#       if (is.null(data)) return(NULL)
       
-      # Add hour of day and day of week
-      data$Hour <- as.numeric(format(data$Timestamp, "%H"))
-      data$DayOfWeek <- factor(weekdays(data$Timestamp), 
-                              levels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+#       # Add hour of day and day of week
+#       data$Hour <- as.numeric(format(data$Timestamp, "%H"))
+#       data$DayOfWeek <- factor(weekdays(data$Timestamp), 
+#                               levels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
       
-      # Convert SpotPrice to numeric explicitly
-      data$NumericSpotPrice <- as.numeric(data$SpotPrice)
+#       # Convert SpotPrice to numeric explicitly
+#       data$NumericSpotPrice <- as.numeric(data$SpotPrice)
       
-      # Create plot of price over time
-      p1 <- plot_ly(data, x = ~Timestamp, y = ~NumericSpotPrice, type = "scatter", 
-                    mode = "lines", name = "Spot Price", line = list(color = "#4682B4")) %>%
-        layout(title = "Spot Price History",
-               xaxis = list(title = "Date"),
-               yaxis = list(title = "Spot Price ($)"))
+#       # Create plot of price over time
+#       p1 <- plot_ly(data, x = ~Timestamp, y = ~NumericSpotPrice, type = "scatter", 
+#                     mode = "lines", name = "Spot Price", line = list(color = "#4682B4")) %>%
+#         layout(title = "Spot Price History",
+#                xaxis = list(title = "Date"),
+#                yaxis = list(title = "Spot Price ($)"))
       
-      # Create heatmap of price by day of week and hour
-      daily_pattern <- aggregate(NumericSpotPrice ~ Hour + DayOfWeek, data = data, FUN = mean)
+#       # Create heatmap of price by day of week and hour
+#       daily_pattern <- aggregate(NumericSpotPrice ~ Hour + DayOfWeek, data = data, FUN = mean)
       
-      p2 <- plot_ly(daily_pattern, x = ~DayOfWeek, y = ~Hour, z = ~NumericSpotPrice, 
-                    type = "heatmap", colorscale = "Blues", reversescale = TRUE) %>%
-        layout(title = "Average Spot Price by Day and Hour",
-               xaxis = list(title = "Day of Week"),
-               yaxis = list(title = "Hour of Day", autorange = "reversed"))
+#       p2 <- plot_ly(daily_pattern, x = ~DayOfWeek, y = ~Hour, z = ~NumericSpotPrice, 
+#                     type = "heatmap", colorscale = "Blues", reversescale = TRUE) %>%
+#         layout(title = "Average Spot Price by Day and Hour",
+#                xaxis = list(title = "Day of Week"),
+#                yaxis = list(title = "Hour of Day", autorange = "reversed"))
       
-      # Create subplot with both charts
-      subplot(p1, p2, nrows = 2, heights = c(0.7, 0.3)) %>%
-        layout(title = "Spot Price Analysis")
-    })
-  })
-}
+#       # Create subplot with both charts
+#       subplot(p1, p2, nrows = 2, heights = c(0.7, 0.3)) %>%
+#         layout(title = "Spot Price Analysis")
+#     })
+#   })
+# }
 
 # Settings tab server module
 settingsTabServer <- function(id, shared_data) {

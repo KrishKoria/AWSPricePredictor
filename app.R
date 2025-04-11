@@ -42,7 +42,7 @@ server <- function(input, output, session) {
   # Initialize modules
   predictionTabServer("prediction", shared_data)
   calculatorTabServer("calculator", shared_data)
-  historyTabServer("history", shared_data)
+  # historyTabServer("history", shared_data)
   settingsTabServer("settings", shared_data)
   
   # Export functionality for tables and plots
