@@ -216,8 +216,8 @@ createDashboardUI <- function() {
           title = "References", status = "info", solidHeader = TRUE, width = 12,
           p("This application is inspired by the research paper:"),
           tags$blockquote(
-            "Cloud service providers (CSP) and cloud consumers often need to forecast the cloud price to optimize their business strategy. However, pricing of cloud services is a challenging task due to its services complexity and dynamic nature of the ever-changing environment. Moreover, the cloud pricing based on consumers’ willingness to pay (W2P) becomes even more challenging due to the subjectiveness of consumers’ experiences and implicit values of some non-marketable features, such as burstable CPU, dedicated server, and cloud data center global footprints.",
-            tags$footer("Source: Research Paper on Value-Based Pricing for Cloud Services")
+            "Hedonic Pricing of Cloud Computing Services",
+            tags$footer("Caesar Wu, Adel Nadjaran Toosi, Rajkumar Buyya, and Kotagiri Ramamohanarao")
           )
         )
       )
